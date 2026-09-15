@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Organizador de Fiestas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --cream: #FAF4EA; --plum: #6E2149; --gold: #C79A3A; --gold-soft: #E7D2A0;
+    --ink: #2B2320; --ink-soft: #6E6259; --line: #E3D6C4;
+    --confirm: #3E7A52; --decline: #B14A3C; --pending-bg: #F1E9DA; --card: #FFFFFF;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--cream); color: var(--ink); font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 32px 18px 90px; }
+  header.hero { text-align: center; margin-bottom: 20px; }
+  .eyebrow { font-family: 'Fraunces', serif; font-style: italic; font-size: 16px; color: var(--gold); margin: 0 0 4px; }
+  h1 { font-family: 'Fraunces', serif; font-weight: 600; font-size: clamp(28px, 5.5vw, 40px); margin: 0; color: var(--plum); line-height: 1.1; }
+
+  .event-bar { display: flex; gap: 8px; align-items: center; justify-content: center; margin: 18px 0; flex-wrap: wrap; }
+  select, input, textarea {
+    font-family: 'Inter', sans-serif; font-size: 14px; padding: 9px 12px;
+    border-radius: 9px; border: 1px solid var(--line); background: var(--card); color: var(--ink);
+  }
+  select:focus, input:focus, textarea:focus { outline: 2px solid var(--gold); outline-offset: 1px; }
+  button { font-family: 'Inter', sans-serif; cursor: pointer; }
+
+  .btn { border: none; background: var(--plum); color: #fff; padding: 9px 16px; border-radius: 9px; font-size: 13.5px; font-weight: 600; }
+  .btn.secondary { background: var(--card); color: var(--plum); border: 1px solid var(--plum); }
+  .btn.small { padding: 6px 11px; font-size: 12.5px; }
+  .btn.danger { background: var(--decline); }
+
+  .tabs { display: flex; gap: 6px; justify-content: center; margin: 22px 0 24px; }
+  .tab-btn { border: 1px solid var(--line); background: var(--card); color: var(--ink-soft); padding: 8px 18px; border-radius: 999px; font-size: 14px; font-weight: 600; }
+  .tab-btn.active { background: var(--plum); border-color: var(--plum); color: #fff; }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  .summary { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin: 4px 0 18px; }
+  .stat { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 9px 16px; text-align: center; min-width: 82px; }
+  .stat .n { font-family: 'Fraunces', serif; font-size: 20px; font-weight: 600; display: block; }
+  .stat .l { font-size: 11px; color: var(--ink-soft); margin-top: 2px; }
+  .stat.confirm .n { color: var(--confirm); } .stat.decline .n { color: var(--decline); } .stat.pending .n { color: var(--gold); }
+
+  .controls { display: flex; gap: 10px; align-items: center; margin: 14px 0; }
+  .controls input[type="text"] { flex: 1; }
+  .filters { display: flex; gap: 6px; margin: 0 0 16px; flex-wrap: wrap; }
+
+  .add-row { display: flex; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; }
+  .add-row input { flex: 1; min-width: 140px; }
+
+  ul.list { list-style: none; margin: 0; padding: 0; }
+  li.row { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 13px 15px; margin-bottom: 9px; }
+  li.row.confirm { border-left: 4px solid var(--confirm); }
+  li.row.decline { border-left: 4px solid var(--decline); }
+  li.row.pending { border-left: 4px solid var(--gold-soft); }
+
+  .row-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+  .name { font-family: 'Fraunces', serif; font-weight: 600; font-size: 16.5px; }
+  .status-group { display: flex; gap: 4px; background: var(--pending-bg); border-radius: 999px; padding: 3px; }
+  .status-btn { border: none; background: transparent; font-size: 12px; font-weight: 600; padding: 5px 10px; border-radius: 999px; color: var(--ink-soft); white-space: nowrap; }
+  .status-btn[data-s="confirm"].active { background: var(--confirm); color: #fff; }
+  .status-btn[data-s="decline"].active { background: var(--decline); color: #fff; }
+  .status-btn[data-s="pending"].active { background: var(--gold); color: #fff; }
+
+  .row-actions { display: flex; gap: 6px; margin-top: 9px; flex-wrap: wrap; align-items: center; }
+  .obs { width: 100%; margin-top: 9px; resize: none; font-size: 13px; }
+  .link-tag { font-size: 11.5px; color: var(--ink-soft); }
+
+  .task-cat { font-family: 'Fraunces', serif; font-weight: 600; font-size: 17px; color: var(--plum); margin: 22px 0 8px; }
+  li.task { display: flex; align-items: flex-start; gap: 10px; }
+  li.task input[type="checkbox"] { margin-top: 3px; width: 17px; height: 17px; accent-color: var(--confirm); }
+  li.task.done .task-title { text-decoration: line-through; color: var(--ink-soft); }
+  .task-title { font-weight: 600; font-size: 14.5px; flex: 1; }
+  .task-due { font-size: 11.5px; color: var(--ink-soft); }
+
+  .empty { text-align: center; color: var(--ink-soft); padding: 30px 0; font-size: 14px; }
+  footer { text-align: center; margin-top: 30px; color: var(--ink-soft); font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <p class="eyebrow">Organizador de Fiestas</p>
+    <h1 id="event-title">Cargando...</h1>
+  </header>
+
+  <div class="event-bar">
+    <select id="event-select"></select>
+    <button class="btn secondary small" id="new-event-btn">+ Nuevo evento</button>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="guests">Invitados</button>
+    <button class="tab-btn" data-tab="tasks">Organización</button>
+  </div>
+
+  <!-- INVITADOS -->
+  <div class="tab-panel active" id="panel-guests">
+    <div class="summary">
+      <div class="stat confirm"><span class="n" id="cnt-confirm">0</span><span class="l">Confirmaron</span></div>
+      <div class="stat decline"><span class="n" id="cnt-decline">0</span><span class="l">No vienen</span></div>
+      <div class="stat pending"><span class="n" id="cnt-pending">0</span><span class="l">Pendientes</span></div>
+      <div class="stat"><span class="n" id="cnt-total">0</span><span class="l">Total</span></div>
+    </div>
+
+    <div class="add-row">
+      <input type="text" id="new-guest-name" placeholder="Nombre de la invitada">
+      <input type="text" id="new-guest-phone" placeholder="Teléfono (opcional, con cód. país)">
+      <button class="btn" id="add-guest-btn">Agregar</button>
+    </div>
+
+    <div class="controls">
+      <input type="text" id="search" placeholder="Buscar...">
+    </div>
+    <div class="filters" id="filters">
+      <button class="filter-btn tab-btn active" data-f="all">Todas</button>
+      <button class="filter-btn tab-btn" data-f="confirm">Confirmadas</button>
+      <button class="filter-btn tab-btn" data-f="decline">No vienen</button>
+      <button class="filter-btn tab-btn" data-f="pending">Pendientes</button>
+    </div>
+
+    <ul class="list" id="guest-list"></ul>
+    <div class="empty" id="guest-empty" style="display:none;">Todavía no hay invitadas cargadas.</div>
+  </div>
+
+  <!-- ORGANIZACIÓN -->
+  <div class="tab-panel" id="panel-tasks">
+    <div class="add-row">
+      <select id="new-task-cat">
+        <option>Lugar</option><option>Catering</option><option>Torta</option>
+        <option>Música</option><option>Decoración</option><option>Fotos</option><option>Otro</option>
+      </select>
+      <input type="text" id="new-task-title" placeholder="Qué hay que hacer">
+      <input type="date" id="new-task-due">
+      <button class="btn" id="add-task-btn">Agregar</button>
+    </div>
+    <div id="task-groups"></div>
+    <div class="empty" id="task-empty" style="display:none;">Todavía no cargaste tareas.</div>
+  </div>
+
+  <footer>Se actualiza sola cada pocos segundos. Compartí este link solo con quien organice con vos.</footer>
+</div>
+
+<script>
+const SUPABASE_URL = "https://hrakfnpxrubabsualezk.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhyYWtmbnB4cnViYWJzdWFsZXprIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk1MDA1NzgsImV4cCI6MjEwNTA3NjU3OH0.E4SRjkmuNxT_jylvpJNDqcQFTbH2NHnOxaqQ72B2BkY";
+const ADMIN_KEY = "Quy8HnUTrOHbgYw44A5XBckuHAeI4gU5";
+const RSVP_BASE_URL = "https://mcnader.github.io/organizador-fiestas/rsvp.html";
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let currentEventId = null;
+let guests = [];
+let tasks = [];
+let activeFilter = "all";
+let searchTerm = "";
+const obsTimers = {};
+
+async function loadEvents() {
+  const { data, error } = await sb.rpc("admin_list_events", { p_admin_key: ADMIN_KEY });
+  if (error) { console.error(error); return; }
+  const sel = document.getElementById("event-select");
+  sel.innerHTML = "";
+  data.forEach(ev => {
+    const opt = document.createElement("option");
+    opt.value = ev.id; opt.textContent = ev.name;
+    sel.appendChild(opt);
+  });
+  if (!currentEventId && data.length) currentEventId = data[0].id;
+  if (currentEventId) {
+    sel.value = currentEventId;
+    const ev = data.find(e => e.id === currentEventId);
+    document.getElementById("event-title").textContent = ev ? ev.name : "Organizador de Fiestas";
+  }
+}
+
+async function loadGuests() {
+  if (!currentEventId) return;
+  const { data, error } = await sb.rpc("admin_list_guests", { p_admin_key: ADMIN_KEY, p_event_id: currentEventId });
+  if (error) { console.error(error); return; }
+  guests = data;
+  renderGuests();
+}
+
+async function loadTasks() {
+  if (!currentEventId) return;
+  const { data, error } = await sb.rpc("admin_list_tasks", { p_admin_key: ADMIN_KEY, p_event_id: currentEventId });
+  if (error) { console.error(error); return; }
+  tasks = data;
+  renderTasks();
+}
+
+function renderGuests() {
+  const listEl = document.getElementById("guest-list");
+  listEl.innerHTML = "";
+  let visible = 0;
+  guests.slice().sort((a, b) => a.name.localeCompare(b.name)).forEach(g => {
+    if (activeFilter !== "all" && g.status !== activeFilter) return;
+    if (searchTerm && !g.name.toLowerCase().includes(searchTerm)) return;
+    visible++;
+
+    const li = document.createElement("li");
+    li.className = "row " + g.status;
+
+    const top = document.createElement("div");
+    top.className = "row-top";
+    const nameEl = document.createElement("div");
+    nameEl.className = "name";
+    nameEl.textContent = g.name;
+
+    const statusGroup = document.createElement("div");
+    statusGroup.className = "status-group";
+    [["confirm","Confirmó"],["pending","Pendiente"],["decline","No viene"]].forEach(([s,label]) => {
+      const btn = document.createElement("button");
+      btn.className = "status-btn" + (g.status === s ? " active" : "");
+      btn.textContent = label;
+      btn.addEventListener("click", async () => {
+        g.status = s;
+        renderGuests();
+        await sb.rpc("admin_set_guest_status", { p_admin_key: ADMIN_KEY, p_guest_id: g.id, p_status: s, p_observation: g.observation });
+      });
+      statusGroup.appendChild(btn);
+    });
+
+    top.appendChild(nameEl);
+    top.appendChild(statusGroup);
+    li.appendChild(top);
+
+    const obs = document.createElement("textarea");
+    obs.className = "obs"; obs.rows = 1;
+    obs.placeholder = "Observación";
+    obs.value = g.observation || "";
+    obs.addEventListener("input", () => {
+      g.observation = obs.value;
+      clearTimeout(obsTimers[g.id]);
+      obsTimers[g.id] = setTimeout(async () => {
+        await sb.rpc("admin_set_guest_status", { p_admin_key: ADMIN_KEY, p_guest_id: g.id, p_status: g.status, p_observation: g.observation });
+      }, 600);
+    });
+    li.appendChild(obs);
+
+    const actions = document.createElement("div");
+    actions.className = "row-actions";
+
+    const waBtn = document.createElement("button");
+    waBtn.className = "btn secondary small";
+    waBtn.textContent = "Link WhatsApp";
+    waBtn.addEventListener("click", () => {
+      const link = `${RSVP_BASE_URL}?t=${g.token}`;
+      const msg = encodeURIComponent(`¡Hola ${g.name.split(" ")[0]}! Es mi cumple y quiero contar con vos 🎉 Confirmame acá si venís: ${link}`);
+      const phone = (g.phone || "").replace(/[^0-9]/g, "");
+      const waUrl = phone ? `https://wa.me/${phone}?text=${msg}` : `https://wa.me/?text=${msg}`;
+      window.open(waUrl, "_blank");
+    });
+    actions.appendChild(waBtn);
+
+    const delBtn = document.createElement("button");
+    delBtn.className = "btn danger small";
+    delBtn.textContent = "Eliminar";
+    delBtn.addEventListener("click", async () => {
+      if (!confirm(`¿Eliminar a ${g.name}?`)) return;
+      await sb.rpc("admin_delete_guest", { p_admin_key: ADMIN_KEY, p_guest_id: g.id });
+      loadGuests();
+    });
+    actions.appendChild(delBtn);
+
+    li.appendChild(actions);
+    listEl.appendChild(li);
+  });
+  document.getElementById("guest-empty").style.display = visible === 0 ? "block" : "none";
+
+  document.getElementById("cnt-confirm").textContent = guests.filter(g => g.status === "confirm").length;
+  document.getElementById("cnt-decline").textContent = guests.filter(g => g.status === "decline").length;
+  document.getElementById("cnt-pending").textContent = guests.filter(g => g.status === "pending").length;
+  document.getElementById("cnt-total").textContent = guests.length;
+}
+
+function renderTasks() {
+  const wrap = document.getElementById("task-groups");
+  wrap.innerHTML = "";
+  document.getElementById("task-empty").style.display = tasks.length === 0 ? "block" : "none";
+
+  const byCat = {};
+  tasks.forEach(t => { (byCat[t.category] = byCat[t.category] || []).push(t); });
+
+  Object.keys(byCat).forEach(cat => {
+    const h = document.createElement("div");
+    h.className = "task-cat";
+    h.textContent = cat;
+    wrap.appendChild(h);
+
+    const ul = document.createElement("ul");
+    ul.className = "list";
+    byCat[cat].forEach(t => {
+      const li = document.createElement("li");
+      li.className = "row task" + (t.done ? " done" : "");
+
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.checked = t.done;
+      cb.addEventListener("change", async () => {
+        t.done = cb.checked;
+        renderTasks();
+        await sb.rpc("admin_toggle_task", { p_admin_key: ADMIN_KEY, p_task_id: t.id, p_done: t.done });
+      });
+      li.appendChild(cb);
+
+      const title = document.createElement("div");
+      title.className = "task-title";
+      title.textContent = t.title + (t.due_date ? "" : "");
+      li.appendChild(title);
+
+      if (t.due_date) {
+        const due = document.createElement("div");
+        due.className = "task-due";
+        due.textContent = t.due_date;
+        li.appendChild(due);
+      }
+
+      const del = document.createElement("button");
+      del.className = "btn danger small";
+      del.textContent = "×";
+      del.addEventListener("click", async () => {
+        await sb.rpc("admin_delete_task", { p_admin_key: ADMIN_KEY, p_task_id: t.id });
+        loadTasks();
+      });
+      li.appendChild(del);
+
+      ul.appendChild(li);
+    });
+    wrap.appendChild(ul);
+  });
+}
+
+document.getElementById("event-select").addEventListener("change", (e) => {
+  currentEventId = e.target.value;
+  loadEvents(); loadGuests(); loadTasks();
+});
+
+document.getElementById("new-event-btn").addEventListener("click", async () => {
+  const name = prompt("Nombre del nuevo evento:");
+  if (!name) return;
+  const { data, error } = await sb.rpc("admin_create_event", { p_admin_key: ADMIN_KEY, p_name: name, p_event_date: null });
+  if (error) { alert("No se pudo crear el evento"); return; }
+  currentEventId = data.id;
+  await loadEvents(); await loadGuests(); await loadTasks();
+});
+
+document.getElementById("add-guest-btn").addEventListener("click", async () => {
+  const nameEl = document.getElementById("new-guest-name");
+  const phoneEl = document.getElementById("new-guest-phone");
+  const name = nameEl.value.trim();
+  if (!name || !currentEventId) return;
+  await sb.rpc("admin_add_guest", { p_admin_key: ADMIN_KEY, p_event_id: currentEventId, p_name: name, p_phone: phoneEl.value.trim() || null });
+  nameEl.value = ""; phoneEl.value = "";
+  loadGuests();
+});
+
+document.getElementById("add-task-btn").addEventListener("click", async () => {
+  const cat = document.getElementById("new-task-cat").value;
+  const titleEl = document.getElementById("new-task-title");
+  const dueEl = document.getElementById("new-task-due");
+  const title = titleEl.value.trim();
+  if (!title || !currentEventId) return;
+  await sb.rpc("admin_add_task", { p_admin_key: ADMIN_KEY, p_event_id: currentEventId, p_category: cat, p_title: title, p_due_date: dueEl.value || null });
+  titleEl.value = ""; dueEl.value = "";
+  loadTasks();
+});
+
+document.getElementById("search").addEventListener("input", (e) => {
+  searchTerm = e.target.value.trim().toLowerCase();
+  renderGuests();
+});
+
+document.querySelectorAll(".filter-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    activeFilter = btn.dataset.f;
+    renderGuests();
+  });
+});
+
+document.querySelectorAll(".tab-btn[data-tab]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".tab-btn[data-tab]").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
+    document.getElementById("panel-" + btn.dataset.tab).classList.add("active");
+  });
+});
+
+async function init() {
+  await loadEvents();
+  await loadGuests();
+  await loadTasks();
+  setInterval(() => { loadGuests(); loadTasks(); }, 6000);
+}
+init();
+</script>
+</body>
+</html>

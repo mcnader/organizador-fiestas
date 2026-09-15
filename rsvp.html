@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Confirmá tu asistencia</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --cream: #FAF4EA; --plum: #6E2149; --gold: #C79A3A;
+    --ink: #2B2320; --ink-soft: #6E6259; --line: #E3D6C4;
+    --confirm: #3E7A52; --decline: #B14A3C; --card: #FFFFFF;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; background: var(--cream); color: var(--ink); font-family: 'Inter', sans-serif; display: flex; align-items: center; justify-content: center; padding: 20px; -webkit-font-smoothing: antialiased; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 32px 28px; max-width: 420px; width: 100%; text-align: center; }
+  .eyebrow { font-family: 'Fraunces', serif; font-style: italic; color: var(--gold); margin: 0 0 6px; font-size: 15px; }
+  h1 { font-family: 'Fraunces', serif; font-weight: 600; font-size: 28px; margin: 0 0 6px; color: var(--plum); }
+  p.sub { color: var(--ink-soft); font-size: 14.5px; margin: 0 0 22px; }
+
+  .choice-group { display: flex; gap: 10px; margin-bottom: 16px; }
+  .choice-btn { flex: 1; padding: 14px; border-radius: 12px; border: 2px solid var(--line); background: var(--cream); font-weight: 700; font-size: 15px; color: var(--ink-soft); cursor: pointer; }
+  .choice-btn.yes.active { border-color: var(--confirm); background: #E4F0E7; color: var(--confirm); }
+  .choice-btn.no.active { border-color: var(--decline); background: #F6E4E0; color: var(--decline); }
+
+  textarea { width: 100%; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; font-family: 'Inter', sans-serif; font-size: 14px; resize: none; margin-bottom: 18px; }
+  textarea:focus { outline: 2px solid var(--gold); outline-offset: 1px; }
+
+  .send-btn { width: 100%; border: none; background: var(--plum); color: #fff; padding: 13px; border-radius: 10px; font-weight: 700; font-size: 15px; cursor: pointer; }
+  .send-btn:disabled { opacity: 0.5; cursor: default; }
+
+  .state { color: var(--ink-soft); font-size: 14.5px; }
+  .ok { color: var(--confirm); font-family: 'Fraunces', serif; font-size: 19px; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="card" id="card">
+  <p class="eyebrow">Cumple Cele</p>
+  <p class="state">Cargando...</p>
+</div>
+
+<script>
+const SUPABASE_URL = "https://hrakfnpxrubabsualezk.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhyYWtmbnB4cnViYWJzdWFsZXprIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk1MDA1NzgsImV4cCI6MjEwNTA3NjU3OH0.E4SRjkmuNxT_jylvpJNDqcQFTbH2NHnOxaqQ72B2BkY";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const params = new URLSearchParams(window.location.search);
+const token = params.get("t");
+const card = document.getElementById("card");
+
+let chosen = null;
+
+function renderForm(guest) {
+  card.innerHTML = `
+    <p class="eyebrow">Cumple Cele</p>
+    <h1>¡Hola, ${guest.name.split(" ")[0]}!</h1>
+    <p class="sub">Contame si venís a la fiesta</p>
+    <div class="choice-group">
+      <button class="choice-btn yes" id="btn-yes">Sí, voy 🎉</button>
+      <button class="choice-btn no" id="btn-no">No puedo</button>
+    </div>
+    <textarea id="obs" rows="3" placeholder="¿Alguna observación? (alergia, venís acompañada, etc.)"></textarea>
+    <button class="send-btn" id="send" disabled>Confirmar</button>
+  `;
+  const obsEl = document.getElementById("obs");
+  obsEl.value = guest.observation || "";
+  if (guest.status === "confirm") { chosen = "confirm"; document.getElementById("btn-yes").classList.add("active"); }
+  if (guest.status === "decline") { chosen = "decline"; document.getElementById("btn-no").classList.add("active"); }
+
+  const sendBtn = document.getElementById("send");
+  function refreshSendState() { sendBtn.disabled = !chosen; }
+  refreshSendState();
+
+  document.getElementById("btn-yes").addEventListener("click", () => {
+    chosen = "confirm";
+    document.getElementById("btn-yes").classList.add("active");
+    document.getElementById("btn-no").classList.remove("active");
+    refreshSendState();
+  });
+  document.getElementById("btn-no").addEventListener("click", () => {
+    chosen = "decline";
+    document.getElementById("btn-no").classList.add("active");
+    document.getElementById("btn-yes").classList.remove("active");
+    refreshSendState();
+  });
+
+  sendBtn.addEventListener("click", async () => {
+    sendBtn.disabled = true;
+    sendBtn.textContent = "Enviando...";
+    const { error } = await sb.rpc("guest_set_rsvp", { p_token: token, p_status: chosen, p_observation: obsEl.value.trim() });
+    if (error) {
+      sendBtn.disabled = false;
+      sendBtn.textContent = "Confirmar";
+      alert("No se pudo enviar, probá de nuevo.");
+      return;
+    }
+    card.innerHTML = `
+      <p class="eyebrow">Cumple Cele</p>
+      <p class="ok">${chosen === "confirm" ? "¡Gracias, te esperamos! 🎉" : "Gracias por avisar 💛"}</p>
+      <p class="sub">Ya podés cerrar esta página. Si te arrepentís, volvé a abrir este mismo link para cambiar tu respuesta.</p>
+    `;
+  });
+}
+
+async function init() {
+  if (!token) {
+    card.innerHTML = `<p class="eyebrow">Cumple Cele</p><p class="state">Este link no es válido. Pedí que te reenvíen la invitación.</p>`;
+    return;
+  }
+  const { data, error } = await sb.rpc("guest_get", { p_token: token });
+  if (error || !data || data.length === 0) {
+    card.innerHTML = `<p class="eyebrow">Cumple Cele</p><p class="state">No encontramos tu invitación. Pedí que te reenvíen el link.</p>`;
+    return;
+  }
+  renderForm(data[0]);
+}
+init();
+</script>
+</body>
+</html>
