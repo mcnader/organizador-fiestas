@@ -116,6 +116,11 @@
 
     <div class="controls">
       <input type="text" id="search" placeholder="Buscar...">
+      <select id="sort-mode">
+        <option value="loaded">Como la cargué</option>
+        <option value="first">Alfabético (nombre)</option>
+        <option value="last">Alfabético (apellido)</option>
+      </select>
     </div>
     <div class="filters" id="filters">
       <button class="filter-btn tab-btn active" data-f="all">Todas</button>
@@ -159,7 +164,24 @@ let guests = [];
 let tasks = [];
 let activeFilter = "all";
 let searchTerm = "";
+let sortMode = "loaded";
+try { sortMode = localStorage.getItem("guest_sort_mode") || "loaded"; } catch (e) {}
 const obsTimers = {};
+
+function lastWord(name) {
+  const parts = name.trim().split(/\s+/);
+  return parts[parts.length - 1];
+}
+function firstWord(name) {
+  return name.trim().split(/\s+/)[0];
+}
+function sortedGuests() {
+  const arr = guests.slice();
+  if (sortMode === "first") arr.sort((a, b) => firstWord(a.name).localeCompare(firstWord(b.name), "es"));
+  else if (sortMode === "last") arr.sort((a, b) => lastWord(a.name).localeCompare(lastWord(b.name), "es"));
+  else arr.sort((a, b) => (a.sort_order ?? 9999) - (b.sort_order ?? 9999));
+  return arr;
+}
 
 async function loadEvents() {
   const { data, error } = await sb.rpc("admin_list_events", { p_admin_key: ADMIN_KEY });
@@ -199,7 +221,7 @@ function renderGuests() {
   const listEl = document.getElementById("guest-list");
   listEl.innerHTML = "";
   let visible = 0;
-  guests.slice().sort((a, b) => a.name.localeCompare(b.name)).forEach(g => {
+  sortedGuests().forEach(g => {
     if (activeFilter !== "all" && g.status !== activeFilter) return;
     if (searchTerm && !g.name.toLowerCase().includes(searchTerm)) return;
     visible++;
@@ -374,6 +396,14 @@ document.getElementById("add-task-btn").addEventListener("click", async () => {
 
 document.getElementById("search").addEventListener("input", (e) => {
   searchTerm = e.target.value.trim().toLowerCase();
+  renderGuests();
+});
+
+const sortSelect = document.getElementById("sort-mode");
+sortSelect.value = sortMode;
+sortSelect.addEventListener("change", (e) => {
+  sortMode = e.target.value;
+  try { localStorage.setItem("guest_sort_mode", sortMode); } catch (err) {}
   renderGuests();
 });
 
