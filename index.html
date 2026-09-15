@@ -332,6 +332,13 @@ function renderTasks() {
     byCat[cat].forEach(t => {
       const li = document.createElement("li");
       li.className = "row task" + (t.done ? " done" : "");
+      li.style.flexDirection = "column";
+      li.style.alignItems = "stretch";
+
+      const topRow = document.createElement("div");
+      topRow.style.display = "flex";
+      topRow.style.alignItems = "flex-start";
+      topRow.style.gap = "10px";
 
       const cb = document.createElement("input");
       cb.type = "checkbox";
@@ -341,18 +348,18 @@ function renderTasks() {
         renderTasks();
         await sb.rpc("admin_toggle_task", { p_admin_key: ADMIN_KEY, p_task_id: t.id, p_done: t.done });
       });
-      li.appendChild(cb);
+      topRow.appendChild(cb);
 
       const title = document.createElement("div");
       title.className = "task-title";
-      title.textContent = t.title + (t.due_date ? "" : "");
-      li.appendChild(title);
+      title.textContent = t.title;
+      topRow.appendChild(title);
 
       if (t.due_date) {
         const due = document.createElement("div");
         due.className = "task-due";
         due.textContent = t.due_date;
-        li.appendChild(due);
+        topRow.appendChild(due);
       }
 
       const del = document.createElement("button");
@@ -362,7 +369,23 @@ function renderTasks() {
         await sb.rpc("admin_delete_task", { p_admin_key: ADMIN_KEY, p_task_id: t.id });
         loadTasks();
       });
-      li.appendChild(del);
+      topRow.appendChild(del);
+
+      li.appendChild(topRow);
+
+      const notes = document.createElement("textarea");
+      notes.className = "obs";
+      notes.rows = 1;
+      notes.placeholder = "Qué vas a llevar / decidiste (ej: empanadas, jamón, queso, aceitunas)";
+      notes.value = t.notes || "";
+      notes.addEventListener("input", () => {
+        t.notes = notes.value;
+        clearTimeout(obsTimers["task_" + t.id]);
+        obsTimers["task_" + t.id] = setTimeout(async () => {
+          await sb.rpc("admin_update_task_notes", { p_admin_key: ADMIN_KEY, p_task_id: t.id, p_notes: t.notes });
+        }, 600);
+      });
+      li.appendChild(notes);
 
       ul.appendChild(li);
     });
