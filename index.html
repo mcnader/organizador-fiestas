@@ -101,6 +101,11 @@
 
   <!-- INVITADOS -->
   <div class="tab-panel active" id="panel-guests">
+    <div class="add-row" style="flex-direction: column; align-items: stretch;">
+      <label style="font-size: 12.5px; color: var(--ink-soft); font-weight: 600;">Texto de la invitación (usá <code>{nombre}</code> y <code>{link}</code> donde corresponda)</label>
+      <textarea id="invite-message" rows="3"></textarea>
+    </div>
+
     <div class="summary">
       <div class="stat confirm"><span class="n" id="cnt-confirm">0</span><span class="l">Confirmaron</span></div>
       <div class="stat decline"><span class="n" id="cnt-decline">0</span><span class="l">No vienen</span></div>
@@ -160,6 +165,7 @@ const RSVP_BASE_URL = "https://mcnader.github.io/organizador-fiestas/rsvp.html";
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 let currentEventId = null;
+let currentEvent = null;
 let guests = [];
 let tasks = [];
 let activeFilter = "all";
@@ -197,7 +203,10 @@ async function loadEvents() {
   if (currentEventId) {
     sel.value = currentEventId;
     const ev = data.find(e => e.id === currentEventId);
+    currentEvent = ev || null;
     document.getElementById("event-title").textContent = ev ? ev.name : "Organizador de Fiestas";
+    const msgEl = document.getElementById("invite-message");
+    if (ev && document.activeElement !== msgEl) msgEl.value = ev.invite_message || "";
   }
 }
 
@@ -274,7 +283,9 @@ function renderGuests() {
     waBtn.textContent = "Link WhatsApp";
     waBtn.addEventListener("click", () => {
       const link = `${RSVP_BASE_URL}?t=${g.token}`;
-      const msg = encodeURIComponent(`¡Hola ${g.name.split(" ")[0]}! Es mi cumple y quiero contar con vos 🎉 Confirmame acá si venís: ${link}`);
+      const template = (currentEvent && currentEvent.invite_message) || "{nombre}, confirmame acá si venís: {link}";
+      const text = template.replace(/\{nombre\}/g, g.name.split(" ")[0]).replace(/\{link\}/g, link);
+      const msg = encodeURIComponent(text);
       const phone = (g.phone || "").replace(/[^0-9]/g, "");
       const waUrl = phone ? `https://wa.me/${phone}?text=${msg}` : `https://wa.me/?text=${msg}`;
       window.open(waUrl, "_blank");
@@ -358,6 +369,17 @@ function renderTasks() {
     wrap.appendChild(ul);
   });
 }
+
+let inviteMsgTimer = null;
+document.getElementById("invite-message").addEventListener("input", (e) => {
+  if (!currentEventId) return;
+  const value = e.target.value;
+  clearTimeout(inviteMsgTimer);
+  inviteMsgTimer = setTimeout(async () => {
+    const { data } = await sb.rpc("admin_set_event_message", { p_admin_key: ADMIN_KEY, p_event_id: currentEventId, p_message: value });
+    if (data) currentEvent = data;
+  }, 700);
+});
 
 document.getElementById("event-select").addEventListener("change", (e) => {
   currentEventId = e.target.value;
